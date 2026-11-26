@@ -7,7 +7,7 @@ works on any Android 8+ phone.
 Made for one situation: **the phone is snatched while it is unlocked** and someone tries to
 send the money out.
 
-- **Password only.** No fingerprint or pattern, and it is separate from the phone's screen lock.
+- **Password only** (no fingerprint/pattern). Either a fixed password, or a **time password**: the clock time + 4 secret digits (at 12:41 → 1241 + 1972 = 12411972), so it changes every minute.
   At least 8 characters with letters and numbers. Only a salted PBKDF2 hash is stored.
 - **Locks again quickly.** An app locks when you leave it, when the screen turns off, and when
   it is left open and untouched for 1 minute (you can choose 30 s – 5 min).

@@ -107,11 +107,20 @@ public class MainActivity extends Activity {
         TextView t = text(change ? "New password" : "🔒 Create your App Locker password", 22, true);
         col.addView(t);
         col.addView(text("This password will be asked every time PNB ONE, YONO SBI, PhonePe or any "
-                + "other locked app is opened.\n\n"
-                + "• At least 8 characters, with letters AND numbers (example: Raju2024ab — "
-                + "but make your own)\n"
-                + "• Do NOT use the phone's screen lock PIN, your UPI PIN, or your birth date\n"
-                + "• Write it on paper and keep it at home, not in the auto or the phone cover", 15, false));
+                + "other locked app is opened.", 15, false));
+
+        RadioGroup kind = new RadioGroup(this);
+        RadioButton rFixed = new RadioButton(this), rTime = new RadioButton(this);
+        rFixed.setText("Fixed password (letters + numbers)");
+        rTime.setText("Time password (clock time + 4 digits)");
+        rFixed.setId(2001);
+        rTime.setId(2002);
+        kind.addView(rFixed);
+        kind.addView(rTime);
+        col.addView(kind);
+
+        TextView info = text("", 15, false);
+        col.addView(info);
 
         EditText p1 = passField("Password");
         EditText p2 = passField("Type it again");
@@ -120,15 +129,36 @@ public class MainActivity extends Activity {
 
         CheckBox show = new CheckBox(this);
         show.setText("Show password");
-        show.setOnCheckedChangeListener((v, on) -> {
-            int type = InputType.TYPE_CLASS_TEXT | (on ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        col.addView(show);
+
+        final boolean[] timeKind = {false};
+        Runnable apply = () -> {
+            boolean tm = timeKind[0], on = show.isChecked();
+            int type = tm ? InputType.TYPE_CLASS_NUMBER | (on ? 0 : InputType.TYPE_NUMBER_VARIATION_PASSWORD)
+                    : InputType.TYPE_CLASS_TEXT | (on ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
                     : InputType.TYPE_TEXT_VARIATION_PASSWORD);
             p1.setInputType(type);
             p2.setInputType(type);
             p1.setTypeface(Typeface.DEFAULT);
             p2.setTypeface(Typeface.DEFAULT);
+            p1.setHint(tm ? "Your 4 digits" : "Password");
+            info.setText(tm
+                    ? "The password changes every minute: type the time shown on the phone's clock, "
+                    + "then your 4 digits.\n\nExample with 1972:\n• at 12:41 → 12411972\n"
+                    + "• at 9:05 → 9051972 (or 09051972)\n\nIf the minute changes while typing, "
+                    + "the previous minute also works."
+                    : "• At least 8 characters, with letters AND numbers (example: tara313bristi62 — "
+                    + "but make your own)\n• Do NOT use the screen lock PIN, UPI PIN or birth date\n"
+                    + "• Write it on paper and keep it at home");
+        };
+        kind.setOnCheckedChangeListener((g, id) -> {
+            timeKind[0] = id == 2002;
+            p1.setText("");
+            p2.setText("");
+            apply.run();
         });
-        col.addView(show);
+        show.setOnCheckedChangeListener((v, on) -> apply.run());
+        kind.check(Store.hasPassword(this) && Store.timeMode(this) ? 2002 : 2001);
 
         TextView err = text("", 15, false);
         err.setTextColor(0xFFD32F2F);
@@ -137,12 +167,13 @@ public class MainActivity extends Activity {
         Button save = bigButton("Save password");
         save.setOnClickListener(v -> {
             String a = p1.getText().toString(), c = p2.getText().toString();
-            String weak = Store.weakness(a);
+            boolean tm = timeKind[0];
+            String weak = tm ? Store.timeWeakness(a) : Store.weakness(a);
             if (weak != null) { err.setText(weak); return; }
-            if (!a.equals(c)) { err.setText("The two passwords are not the same."); return; }
+            if (!a.equals(c)) { err.setText("The two entries are not the same."); return; }
             save.setEnabled(false);
             new Thread(() -> {
-                Store.setPassword(this, a);
+                if (tm) Store.setTimePassword(this, a); else Store.setPassword(this, a);
                 runOnUiThread(() -> {
                     adminOk = true;
                     stoppedAt = 0;
@@ -257,7 +288,9 @@ public class MainActivity extends Activity {
         c3.addView(rg);
         c3.addView(text("Apps also lock again when you leave them and whenever the screen turns off.", 13, false));
 
-        Button chg = smallButton("Change password");
+        c3.addView(text("\nPassword type: " + (Store.timeMode(this)
+                ? "Time password (clock time + your 4 digits)" : "Fixed password"), 14, false));
+        Button chg = smallButton("Change password / password type");
         chg.setOnClickListener(v -> showPasswordForm(true));
         c3.addView(chg);
 

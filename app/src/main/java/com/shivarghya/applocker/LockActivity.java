@@ -83,6 +83,7 @@ public class LockActivity extends Activity {
         icon.setImageDrawable(d);
         title.setText(label + " is locked");
         pw.setText("");
+        applyInputType();
         mode = MODE_NONE;          // decided again in onResume()
     }
 
@@ -220,6 +221,20 @@ public class LockActivity extends Activity {
         } catch (Exception ignored) {}
         finish();
         overridePendingTransition(0, 0);
+    }
+
+    /** Number keypad for the time password, normal keyboard for a fixed password. */
+    private void applyInputType() {
+        boolean on = show != null && show.isChecked();
+        int sel = pw.getSelectionEnd();
+        if (Store.timeMode(this)) {
+            pw.setInputType(InputType.TYPE_CLASS_NUMBER | (on ? 0 : InputType.TYPE_NUMBER_VARIATION_PASSWORD));
+        } else {
+            pw.setInputType(InputType.TYPE_CLASS_TEXT | (on ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                    : InputType.TYPE_TEXT_VARIATION_PASSWORD));
+        }
+        pw.setTypeface(Typeface.DEFAULT);
+        pw.setSelection(Math.max(0, Math.min(sel, pw.length())));
     }
 
     // ---------- unlocking ----------
@@ -366,13 +381,7 @@ public class LockActivity extends Activity {
         show = new CheckBox(this);
         show.setText("Show password");
         show.setTextColor(0xFFCBD5E1);
-        show.setOnCheckedChangeListener((v, on) -> {
-            int sel = pw.getSelectionEnd();
-            pw.setInputType(InputType.TYPE_CLASS_TEXT | (on ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                    : InputType.TYPE_TEXT_VARIATION_PASSWORD));
-            pw.setTypeface(Typeface.DEFAULT);
-            pw.setSelection(Math.max(0, Math.min(sel, pw.length())));
-        });
+        show.setOnCheckedChangeListener((v, on) -> applyInputType());
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-2, -2);
         slp.gravity = Gravity.START;
         slp.topMargin = dp(6);

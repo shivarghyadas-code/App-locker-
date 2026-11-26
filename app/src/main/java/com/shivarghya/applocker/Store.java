@@ -46,6 +46,35 @@ final class Store {
         return null;
     }
 
+    /** "Time password": the clock time (HHMM) followed by 4 secret digits, e.g. 12:41 → 1241 + 1972. */
+    static boolean timeMode(Context c) { return "time".equals(sp(c).getString("pw_mode", "fixed")); }
+
+    static String timeWeakness(String digits) {
+        return digits.matches("\\d{4}") ? null : "Type exactly 4 digits.";
+    }
+
+    static void setTimePassword(Context c, String digits4) {
+        setPassword(c, digits4);
+        sp(c).edit().putString("pw_mode", "time").commit();
+    }
+
+    /** What the clock may show now (or a minute ago, if it changed while typing): 1241, 0105, 105, 1305… */
+    static java.util.Set<String> timePrefixes() {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        long now = System.currentTimeMillis();
+        for (long t : new long[]{now, now - 60_000L}) {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.setTimeInMillis(t);
+            int h24 = cal.get(java.util.Calendar.HOUR_OF_DAY), m = cal.get(java.util.Calendar.MINUTE);
+            int h12 = h24 % 12 == 0 ? 12 : h24 % 12;
+            for (int h : new int[]{h24, h12}) {
+                out.add(String.format(java.util.Locale.US, "%02d%02d", h, m));
+                out.add(String.format(java.util.Locale.US, "%d%02d", h, m));
+            }
+        }
+        return out;
+    }
+
     static void setPassword(Context c, String pw) {
         byte[] salt = new byte[16];
         new SecureRandom().nextBytes(salt);
@@ -54,12 +83,24 @@ final class Store {
                 .putString("pw_salt", Base64.encodeToString(salt, Base64.NO_WRAP))
                 .putString("pw_hash", Base64.encodeToString(hash, Base64.NO_WRAP))
                 .putInt("pw_iter", ITERATIONS)
+                .putString("pw_mode", "fixed")
                 .putInt("fails", 0).putLong("lockout_until", 0)
                 .commit();
     }
 
     /** Slow on purpose (~0.2 s). Call off the main thread. */
     static boolean check(Context c, String pw) {
+        if (timeMode(c)) {
+            String d = pw.trim();
+            if (!d.matches("\\d{7,8}")) return false;
+            String prefix = d.substring(0, d.length() - 4);
+            if (!timePrefixes().contains(prefix)) return false;
+            return checkSecret(c, d.substring(d.length() - 4));
+        }
+        return checkSecret(c, pw);
+    }
+
+    private static boolean checkSecret(Context c, String pw) {
         SharedPreferences s = sp(c);
         String h = s.getString("pw_hash", null), salt = s.getString("pw_salt", null);
         if (h == null || salt == null) return false;
