@@ -21,7 +21,7 @@
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  var marker = null, circle = null, me = null, radius = 150;
+  var marker = null, circle = null, me = null, radius = 1000;
 
   var Hint = L.Control.extend({
     onAdd: function () {
@@ -52,6 +52,11 @@
   }
 
   function hasPoint() { return marker !== null; }
+
+  // Zoom so the whole trusted area is on screen (up to 4 km)
+  function fitCircle() {
+    if (circle) map.fitBounds(circle.getBounds(), { padding: [20, 20], maxZoom: 17 });
+  }
 
   function setRadius(r) {
     radius = r;

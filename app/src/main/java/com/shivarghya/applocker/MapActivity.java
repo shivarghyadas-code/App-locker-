@@ -27,7 +27,7 @@ public class MapActivity extends Activity {
     private TextView radiusText;
     private EditText name;
     private volatile double pickLat = Double.NaN, pickLon = Double.NaN;
-    private int radius = 150;
+    private int radius = 1000;
     private Loc loc;
     private boolean pageReady, wantCenterOnMe = true;
     private Location lastMe;
@@ -75,7 +75,8 @@ public class MapActivity extends Activity {
                 wantCenterOnMe = true;
                 startLoc();
             } else {
-                js(String.format(Locale.US, "setPoint(%f,%f,17)", lastMe.getLatitude(), lastMe.getLongitude()));
+                js(String.format(Locale.US, "setPoint(%f,%f,0)", lastMe.getLatitude(), lastMe.getLongitude()));
+                js("fitCircle()");
             }
         });
         panel.addView(me);
@@ -92,16 +93,16 @@ public class MapActivity extends Activity {
         panel.addView(radiusText);
 
         SeekBar sb = new SeekBar(this);
-        sb.setMax(19);                       // 50 m … 1000 m in 50 m steps
-        sb.setProgress(radius / 50 - 1);
+        sb.setMax(31);                       // 50 m … 1 km in 50 m steps, then up to 4 km in 250 m steps
+        sb.setProgress(toProgress(radius));
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int v, boolean user) {
-                radius = (v + 1) * 50;
+                radius = fromProgress(v);
                 showRadius();
                 js("setRadius(" + radius + ")");
             }
             @Override public void onStartTrackingTouch(SeekBar s) {}
-            @Override public void onStopTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) { js("fitCircle()"); }
         });
         panel.addView(sb);
         showRadius();
@@ -150,12 +151,24 @@ public class MapActivity extends Activity {
         js(String.format(Locale.US, "showMe(%f,%f,%f)", lastMe.getLatitude(), lastMe.getLongitude(), lastMe.getAccuracy()));
         if (wantCenterOnMe && Double.isNaN(pickLat) && lastMe.getAccuracy() <= 100) {
             wantCenterOnMe = false;
-            js(String.format(Locale.US, "setPoint(%f,%f,17)", lastMe.getLatitude(), lastMe.getLongitude()));
+            js(String.format(Locale.US, "setPoint(%f,%f,0)", lastMe.getLatitude(), lastMe.getLongitude()));
+            js("fitCircle()");
         }
     }
 
+    static int fromProgress(int v) { return v <= 19 ? (v + 1) * 50 : 1000 + (v - 19) * 250; }
+
+    static int toProgress(int r) { return r <= 1000 ? Math.max(0, r / 50 - 1) : 19 + (r - 1000) / 250; }
+
+    /** 150 m, 1 km, 2.5 km … */
+    static String size(int r) {
+        if (r < 1000) return r + " m";
+        return (r % 1000 == 0 ? String.valueOf(r / 1000) : String.format(Locale.US, "%.2f", r / 1000f)
+                .replaceAll("0+$", "")) + " km";
+    }
+
     private void showRadius() {
-        radiusText.setText("Size of the trusted area: " + radius + " m around the pin");
+        radiusText.setText("Trusted area: " + size(radius) + " all around the pin (no lock inside it at night)");
     }
 
     private void save() {

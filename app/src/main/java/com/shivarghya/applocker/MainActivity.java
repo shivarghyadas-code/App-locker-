@@ -361,7 +361,7 @@ public class MainActivity extends Activity {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            TextView t = text("📍 " + p.name + "  ·  " + p.radius + " m", 15, false);
+            TextView t = text("📍 " + p.name + "  ·  " + MapActivity.size(p.radius), 15, false);
             row.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
             Button del = new Button(this);
             del.setText("Remove");

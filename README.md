@@ -34,7 +34,7 @@ send the money out.
 4. Do the 3 MIUI steps on the same screen: pop-up windows, Autostart, Battery "No restrictions".
 5. Check the list of apps to lock. Money apps are already ticked.
 6. Night lock: allow location ("While using the app"), tap **Add trusted place on map**, put the
-   pin on your home, choose the size (for example 150 m) and save. Add other safe places the same way.
+   pin on your home, choose the size (50 m up to 4 km, default 1 km) and save. Add other safe places the same way.
 
 ## Also do this on the phone
 - Set a **phone screen lock** (PIN). Restarting in Safe mode turns off every downloaded app,
