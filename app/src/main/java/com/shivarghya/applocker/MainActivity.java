@@ -350,14 +350,16 @@ public class MainActivity extends Activity {
         // 5. Theft alert
         LinearLayout c5 = card(head);
         c5.addView(text("🚨 Theft alert SMS", 16, true));
-        c5.addView(text("If someone types a wrong password 5 times, waits, and then gets it wrong 3 more "
-                + "times, this phone silently sends an SMS with its live location (Google Maps link) to "
-                + "these family numbers. It is sent again after every 3 more wrong tries. Nothing shows "
-                + "on the screen, so the thief does not know.\n\n"
+        c5.addView(text("Wrong passwords:\n"
+                + "• 5 wrong → locked for 15 minutes\n"
+                + "• 5 more wrong → locked for 1 hour\n"
+                + "• 5 more wrong → SOS starts by itself: the live location (Google Maps link) is "
+                + "sent by SMS to these numbers, then the first number is called. Locked 1 hour again, "
+                + "and SOS repeats after every 5 more wrong tries.\n\n"
                 + "Emergency mode: from the 5th wrong password until the right one is typed, the "
                 + "power menu (Power off / Restart / Aeroplane mode) and the quick-settings panel close "
-                + "as soon as they open. After the SMS goes out, the lock screen also shows a red "
-                + "warning that the location was sent.", 14, false));
+                + "as soon as they open. After the SMS goes out, the lock screen shows a red warning "
+                + "that the location was sent.", 14, false));
         Switch as = new Switch(this);
         as.setText("Theft alert");
         as.setTextSize(16);
@@ -462,7 +464,7 @@ public class MainActivity extends Activity {
     }
 
     private void askSms() {
-        requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQ_SMS);
+        requestPermissions(new String[]{Manifest.permission.SEND_SMS, Manifest.permission.CALL_PHONE}, REQ_SMS);
     }
 
     private void askLocation(int code) {

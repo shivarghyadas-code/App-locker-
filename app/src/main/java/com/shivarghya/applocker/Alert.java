@@ -24,13 +24,13 @@ import java.util.Locale;
 final class Alert {
     private Alert() {}
 
-    /** 5 wrong tries → first wait; 3 more wrong → alert (8), then again every 3 more (11, 14…). */
-    static final int FIRST_ALERT_AT = Store.MAX_TRIES + 3;
+    /** 5 wrong → 15 min wait; 10 → 1 hour wait; 15 → SOS (SMS + call), then again every 5 more (20, 25…). */
+    static final int FIRST_ALERT_AT = Store.MAX_TRIES * 3;
     private static final long MIN_GAP_MS = 2 * 60_000L;
     private static long lastSentAt = -MIN_GAP_MS;
 
     static boolean shouldAlert(int wrongTries) {
-        return wrongTries >= FIRST_ALERT_AT && (wrongTries - FIRST_ALERT_AT) % 3 == 0;
+        return wrongTries >= FIRST_ALERT_AT && wrongTries % Store.MAX_TRIES == 0;
     }
 
     // ---------- settings ----------
@@ -70,14 +70,16 @@ final class Alert {
     /** Wrong-password alert: waits up to 12 s for an exact location, then sends with the best one. */
     static void trigger(Context ctx, int wrongTries) {
         Context c = ctx.getApplicationContext();
-        if (!on(c) || !canSend(c) || numbers(c).isEmpty()) return;
+        if (!on(c) || numbers(c).isEmpty()) return;
         long now = SystemClock.elapsedRealtime();
         if (now - lastSentAt < MIN_GAP_MS) return;
         lastSentAt = now;
+        if (!canSend(c)) { callFirst(c); return; }   // no SMS permission: at least ring the family
         String reason = wrongTries + " wrong password tries";
         locateThenSend(c, THEFT, reason, (n, where) -> {
             // Remembered so the lock screen can warn that the location has gone out.
             if (n > 0) Store.sp(c).edit().putLong("alert_last_at", System.currentTimeMillis()).apply();
+            callFirst(c);     // SOS: then ring the first emergency number
         });
     }
 
@@ -159,6 +161,16 @@ final class Alert {
             }
         } catch (Exception ignored) {}
         return sent;
+    }
+
+    /** Rings the first saved number (needs the Phone permission; never 112, which apps may not auto-dial). */
+    static void callFirst(Context c) {
+        List<String> nums = numbers(c);
+        if (nums.isEmpty() || c.checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) return;
+        try {
+            c.startActivity(new android.content.Intent(android.content.Intent.ACTION_CALL,
+                    android.net.Uri.parse("tel:" + nums.get(0))).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception ignored) {}
     }
 
     /** 9876543210 → 98•••••210 (shown on the lock screen without giving the full number away). */

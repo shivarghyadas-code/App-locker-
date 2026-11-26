@@ -120,19 +120,29 @@ final class Store {
 
     // ---------- wrong-password wait ----------
 
-    /** Records a wrong try. Returns how many tries are left before a wait (0 = waiting now). */
+    /**
+     * Records a wrong try. Returns how many tries are left before the next wait (0 = waiting now).
+     *   5 wrong → locked 15 minutes
+     *  10 wrong → locked 1 hour
+     *  15 wrong → SOS (location SMS + call) and locked 1 hour; again every 5 more.
+     */
     static int fail(Context c) {
         SharedPreferences s = sp(c);
         int n = s.getInt("fails", 0) + 1;
         long until = 0;
-        if (n >= MAX_TRIES) {
-            long secs = Math.min(30L << Math.min(n - MAX_TRIES, 5), 15 * 60L); // 30 s, 1 m, 2 m … 15 m
-            until = System.currentTimeMillis() + secs * 1000L;
+        if (n % MAX_TRIES == 0) {
+            long mins = n == MAX_TRIES ? 15 : 60;
+            until = System.currentTimeMillis() + mins * 60_000L;
         }
         SharedPreferences.Editor ed = s.edit().putInt("fails", n).putLong("lockout_until", until);
         if (n >= MAX_TRIES) ed.putBoolean("emergency", true);   // someone is guessing: emergency mode on
         ed.apply();
-        return Math.max(0, MAX_TRIES - n);
+        return n % MAX_TRIES == 0 ? 0 : MAX_TRIES - n % MAX_TRIES;
+    }
+
+    /** "a 15-minute wait" before the 5th wrong try, "a 1-hour wait" after that. */
+    static String nextWait(Context c) {
+        return fails(c) < MAX_TRIES ? "a 15-minute wait" : "a 1-hour wait";
     }
 
     static int fails(Context c) { return sp(c).getInt("fails", 0); }
@@ -151,7 +161,7 @@ final class Store {
 
     static long waitLeftMs(Context c) {
         long left = sp(c).getLong("lockout_until", 0) - System.currentTimeMillis();
-        return Math.max(0, Math.min(left, 15 * 60_000L)); // clamp if the clock was moved back
+        return Math.max(0, Math.min(left, 60 * 60_000L)); // clamp if the clock was moved back
     }
 
     // ---------- which apps ----------

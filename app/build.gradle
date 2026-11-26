@@ -15,8 +15,8 @@ android {
         applicationId 'com.shivarghya.applocker'
         minSdk 26          // Poco M3 ships Android 10+ (MIUI 12/13)
         targetSdk 34
-        versionCode 8
-        versionName '1.7'
+        versionCode 9
+        versionName '1.8'
     }
 
     signingConfigs {

@@ -21,9 +21,10 @@ send the money out.
   apps open only when the phone is inside a trusted place you marked on the map (home, auto
   stand…). Anywhere else they stay blocked, even with the password. Settings and App Locker
   are blocked too, so it can't be switched off. Fake GPS apps are detected.
-- **Theft alert SMS.** After 5 wrong passwords and the wait, 3 more wrong tries silently send an
-  SMS with the phone's live location (Google Maps link) to up to 3 family numbers, and again after
-  every 3 more. Nothing shows on screen. (Android does not let apps call 112 by themselves.)
+- **Wrong passwords.** 5 wrong → locked 15 minutes. 5 more → locked 1 hour. 5 more → **SOS starts
+  by itself**: an SMS with the live location (Google Maps link) goes to up to 3 family numbers and the
+  first number is called; locked 1 hour again, and SOS repeats every 5 more wrong tries.
+  (Android does not let apps call 112 by themselves.)
 - **Emergency mode.** From the 5th wrong password until the right one is typed, the power menu
   (Power off / Restart / Aeroplane mode) and the quick-settings panel close the moment they open,
   and after the alert SMS goes out the lock screen shows a red "location sent" warning. Holding
