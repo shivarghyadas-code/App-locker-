@@ -146,7 +146,11 @@ public class LockService extends AccessibilityService {
         }
 
         if (pkg.equals(getPackageName())) {           // our own lock / settings screen
-            leaveAllExcept(null);
+            // The password screen itself must not cancel an unlock: after the right password it closes
+            // and the app underneath (e.g. Settings) has to stay open. Only App Locker's own main
+            // screen counts as "leaving" the other apps.
+            CharSequence own = e.getClassName();
+            if (own == null || !own.toString().endsWith("LockActivity")) leaveAllExcept(null);
             fg = pkg;
             return;
         }
@@ -186,7 +190,20 @@ public class LockService extends AccessibilityService {
         }
     }
 
+    /**
+     * Settings, MIUI Security (App info / permission pop-ups) and the installer are one place:
+     * one password opens all of them — otherwise MIUI's own confirmation pop-up (e.g. when
+     * switching on notification access for an app) locks again and the same page keeps coming back.
+     */
     private boolean isUnlocked(String pkg) {
+        if (Known.SYSTEM_PROTECTED.contains(pkg)) {
+            for (String p : Known.SYSTEM_PROTECTED) if (unlockedOne(p)) return true;
+            return false;
+        }
+        return unlockedOne(pkg);
+    }
+
+    private boolean unlockedOne(String pkg) {
         Long last = unlocked.get(pkg);
         if (last == null) return false;
         if (last == 0L) return true;                   // just unlocked / opened from App Locker
@@ -269,7 +286,11 @@ public class LockService extends AccessibilityService {
     static void allow(String pkg) {
         LockService s = instance;
         if (s == null) return;
-        s.unlocked.put(pkg, SystemClock.elapsedRealtime());
+        long now = SystemClock.elapsedRealtime();
+        s.unlocked.put(pkg, now);
+        if (Known.SYSTEM_PROTECTED.contains(pkg)) {
+            for (String p : Known.SYSTEM_PROTECTED) s.unlocked.put(p, now);   // Settings + MIUI pop-ups together
+        }
         s.scheduleIdleCheck();
     }
 
