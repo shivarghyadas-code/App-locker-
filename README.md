@@ -17,8 +17,13 @@ send the money out.
   up to 15 min.
 - **Fails closed.** If the phone blocks the password screen, the bank app is sent to the home
   screen instead of being left open.
-- No internet permission. Doesn't read the screen or what you type. Screenshots of the
-  password screen are blocked.
+- **Night lock with trusted places.** From 10 PM to 6 AM (you can change the hours), money
+  apps open only when the phone is inside a trusted place you marked on the map (home, auto
+  stand…). Anywhere else they stay blocked, even with the password. Settings and App Locker
+  are blocked too, so it can't be switched off. Fake GPS apps are detected.
+- Doesn't read the screen or what you type. Screenshots of the password screen are blocked.
+  Internet is used only to show the map; location is checked only while the lock screen is open
+  and never leaves the phone.
 
 **Download:** see [Releases](../../releases/latest) → `App-Locker.apk`
 
@@ -28,6 +33,8 @@ send the money out.
 3. Tap **Turn on App Locker**, find App Locker, turn it on, then wait for the timer and tap Allow.
 4. Do the 3 MIUI steps on the same screen: pop-up windows, Autostart, Battery "No restrictions".
 5. Check the list of apps to lock. Money apps are already ticked.
+6. Night lock: allow location ("While using the app"), tap **Add trusted place on map**, put the
+   pin on your home, choose the size (for example 150 m) and save. Add other safe places the same way.
 
 ## Also do this on the phone
 - Set a **phone screen lock** (PIN). Restarting in Safe mode turns off every downloaded app,

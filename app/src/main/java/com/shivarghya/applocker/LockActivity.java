@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -34,10 +35,17 @@ public class LockActivity extends Activity {
     private final Handler h = new Handler(Looper.getMainLooper());
     private String target;
     private ImageView icon;
-    private TextView title, msg;
+    private TextView title, msg, sub, place;
     private EditText pw;
-    private Button btn;
+    private CheckBox show;
+    private Button btn, retry;
     private boolean checking;
+
+    // Night lock: is this screen allowed to ask for the password right now?
+    private static final int MODE_NONE = 0, MODE_OK = 1, MODE_CHECKING = 2, MODE_BLOCKED = 3;
+    private int mode = MODE_NONE;
+    private Loc loc;
+    private Location best;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -75,31 +83,129 @@ public class LockActivity extends Activity {
         icon.setImageDrawable(d);
         title.setText(label + " is locked");
         pw.setText("");
-        msg.setTextColor(0xFFB0BEC5);
-        msg.setText("");
-        refreshWait();
+        mode = MODE_NONE;          // decided again in onResume()
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         visible = true;
-        refreshWait();
-        pw.requestFocus();
-        h.postDelayed(() -> {
-            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-            if (imm != null && pw.isEnabled()) imm.showSoftInput(pw, InputMethodManager.SHOW_IMPLICIT);
-        }, 200);
+        if (mode != MODE_OK) startGate();
+        else { refreshWait(); pw.requestFocus(); h.postDelayed(showKb, 200); }
     }
 
     @Override
     protected void onPause() {
         visible = false;
+        stopLoc();
+        if (mode == MODE_CHECKING) mode = MODE_NONE;
         super.onPause();
+    }
+
+    private final Runnable showKb = () -> {
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null && pw.isEnabled() && mode == MODE_OK) imm.showSoftInput(pw, InputMethodManager.SHOW_IMPLICIT);
+    };
+
+    // ---------- night lock: trusted places ----------
+
+    private void startGate() {
+        stopLoc();
+        if (!NightLock.isNightNow(this) || !NightLock.appliesTo(this, target)) {
+            setMode(MODE_OK, null);
+            return;
+        }
+        if (NightLock.places(this).isEmpty()) {
+            block("No trusted place has been added, so money apps stay closed until "
+                    + NightLock.fmt(NightLock.end(this)) + ".");
+            return;
+        }
+        if (!Loc.hasPermission(this)) {
+            block("App Locker has no location permission, so it cannot check for a trusted place.");
+            return;
+        }
+        if (!Loc.enabled(this)) {
+            block("Turn on Location (GPS) from the top of the screen, then tap Try again.\n"
+                    + "লোকেশন চালু করুন।");
+            return;
+        }
+        best = null;
+        setMode(MODE_CHECKING, "📍 Checking location…\nলোকেশন দেখা হচ্ছে…");
+        loc = new Loc(this, this::onFix);
+        if (!loc.start()) {
+            block("Could not use the location. Tap Try again.");
+            return;
+        }
+        h.postDelayed(locTimeout, 20_000);
+    }
+
+    private void onFix(Location l) {
+        if (mode != MODE_CHECKING) return;
+        if (Loc.isFake(l)) {
+            stopLoc();
+            block("A fake GPS location was detected.");
+            return;
+        }
+        if (best == null || l.getAccuracy() < best.getAccuracy()) best = l;
+        NightLock.Place p = NightLock.match(this, l);
+        if (p != null) {
+            stopLoc();
+            setMode(MODE_OK, p.name);
+        } else if (l.getAccuracy() <= 30) {   // exact enough: definitely outside
+            stopLoc();
+            blockOutside();
+        }
+    }
+
+    private final Runnable locTimeout = () -> {
+        if (mode != MODE_CHECKING) return;
+        stopLoc();
+        if (best == null) block("Could not find the location. Go to an open place and tap Try again.");
+        else blockOutside();
+    };
+
+    private void blockOutside() {
+        block("This phone is not at a trusted place, so money apps are blocked at night, "
+                + "even with the password.\nরাতে নিরাপদ জায়গার বাইরে পেমেন্ট বন্ধ।");
+    }
+
+    private void block(String why) {
+        setMode(MODE_BLOCKED, "🌙 Night lock  " + NightLock.window(this) + "\n\n" + why);
+    }
+
+    private void stopLoc() {
+        h.removeCallbacks(locTimeout);
+        if (loc != null) { loc.stop(); loc = null; }
+    }
+
+    private void setMode(int m, String text) {
+        mode = m;
+        boolean ok = m == MODE_OK;
+        int v = ok ? View.VISIBLE : View.GONE;
+        pw.setVisibility(v);
+        show.setVisibility(v);
+        btn.setVisibility(v);
+        sub.setVisibility(v);
+        retry.setVisibility(m == MODE_BLOCKED ? View.VISIBLE : View.GONE);
+        if (ok) {
+            place.setText(text == null ? "" : "📍 At trusted place: " + text);
+            place.setVisibility(text == null ? View.GONE : View.VISIBLE);
+            msg.setText("");
+            refreshWait();
+            pw.requestFocus();
+            h.postDelayed(showKb, 200);
+        } else {
+            place.setVisibility(View.GONE);
+            msg.setTextColor(m == MODE_BLOCKED ? 0xFFFF8A80 : 0xFFB0BEC5);
+            msg.setText(text);
+            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) imm.hideSoftInputFromWindow(pw.getWindowToken(), 0);
+        }
     }
 
     @Override
     protected void onDestroy() {
+        stopLoc();
         h.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
@@ -119,7 +225,7 @@ public class LockActivity extends Activity {
     // ---------- unlocking ----------
 
     private void tryUnlock() {
-        if (checking || Store.waitLeftMs(this) > 0) return;
+        if (checking || mode != MODE_OK || Store.waitLeftMs(this) > 0) return;
         final String p = pw.getText().toString();
         if (p.isEmpty()) return;
         checking = true;
@@ -164,6 +270,7 @@ public class LockActivity extends Activity {
 
     private void refreshWait() {
         h.removeCallbacks(tick);
+        if (mode != MODE_OK) return;
         long left = Store.waitLeftMs(this);
         boolean waiting = left > 0;
         pw.setEnabled(!waiting);
@@ -213,12 +320,20 @@ public class LockActivity extends Activity {
         title.setPadding(0, dp(16), 0, dp(4));
         col.addView(title);
 
-        TextView sub = new TextView(this);
+        sub = new TextView(this);
         sub.setText("Enter password  ·  পাসওয়ার্ড দিন");
         sub.setTextColor(0xFFCBD5E1);
         sub.setTextSize(16);
         sub.setGravity(Gravity.CENTER);
         col.addView(sub);
+
+        place = new TextView(this);
+        place.setTextColor(0xFF86EFAC);
+        place.setTextSize(15);
+        place.setGravity(Gravity.CENTER);
+        place.setPadding(0, dp(8), 0, 0);
+        place.setVisibility(View.GONE);
+        col.addView(place);
 
         pw = new EditText(this);
         pw.setSingleLine(true);
@@ -246,7 +361,7 @@ public class LockActivity extends Activity {
         plp.topMargin = dp(28);
         col.addView(pw, plp);
 
-        CheckBox show = new CheckBox(this);
+        show = new CheckBox(this);
         show.setText("Show password");
         show.setTextColor(0xFFCBD5E1);
         show.setOnCheckedChangeListener((v, on) -> {
@@ -280,6 +395,21 @@ public class LockActivity extends Activity {
         msg.setGravity(Gravity.CENTER);
         msg.setPadding(0, dp(16), 0, 0);
         col.addView(msg);
+
+        retry = new Button(this);
+        retry.setText("Try again");
+        retry.setAllCaps(false);
+        retry.setTextColor(Color.WHITE);
+        retry.setTextSize(17);
+        GradientDrawable rb = new GradientDrawable();
+        rb.setColor(0xFF334155);
+        rb.setCornerRadius(dp(12));
+        retry.setBackground(rb);
+        retry.setVisibility(View.GONE);
+        retry.setOnClickListener(v -> startGate());
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-1, dp(52));
+        rlp.topMargin = dp(16);
+        col.addView(retry, rlp);
 
         View spacer = new View(this);
         col.addView(spacer, new LinearLayout.LayoutParams(1, 0, 1f));

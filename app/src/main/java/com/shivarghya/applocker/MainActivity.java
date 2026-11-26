@@ -1,6 +1,9 @@
 package com.shivarghya.applocker;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.TimePickerDialog;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -50,6 +53,8 @@ public class MainActivity extends Activity {
     private TextView status;
     private Button onBtn;
     private Adapter adapter;
+    private LinearLayout placesBox;
+    private static final int REQ_LOC = 7, REQ_LOC_MAP = 8;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -77,6 +82,7 @@ public class MainActivity extends Activity {
         stoppedAt = 0;
         if (list == null) buildMain();
         refreshStatus();
+        refreshPlaces();
     }
 
     @Override
@@ -143,6 +149,7 @@ public class MainActivity extends Activity {
                     Toast.makeText(this, "Password saved", Toast.LENGTH_SHORT).show();
                     buildMain();
                     refreshStatus();
+                    refreshPlaces();
                 });
             }).start();
         });
@@ -152,7 +159,7 @@ public class MainActivity extends Activity {
             Button cancel = new Button(this);
             cancel.setText("Cancel");
             cancel.setAllCaps(false);
-            cancel.setOnClickListener(v -> { buildMain(); refreshStatus(); });
+            cancel.setOnClickListener(v -> { buildMain(); refreshStatus(); refreshPlaces(); });
             col.addView(cancel);
         }
         setContentView(sv);
@@ -254,7 +261,60 @@ public class MainActivity extends Activity {
         chg.setOnClickListener(v -> showPasswordForm(true));
         c3.addView(chg);
 
-        // 4. App list
+        // 4. Night lock with trusted places
+        LinearLayout c4 = card(head);
+        c4.addView(text("🌙 Night lock", 16, true));
+        c4.addView(text("At night, money apps open ONLY at a trusted place (home, auto stand…). "
+                + "Anywhere else they stay blocked, even if someone knows the password. "
+                + "Settings and App Locker are blocked too, so it can't be switched off.", 14, false));
+        Switch ns = new Switch(this);
+        ns.setText("Night lock");
+        ns.setTextSize(16);
+        ns.setChecked(NightLock.on(this));
+        ns.setOnCheckedChangeListener((v, on) -> {
+            NightLock.setOn(this, on);
+            if (on && !Loc.hasPermission(this)) askLocation(REQ_LOC);
+            refreshPlaces();
+        });
+        c4.addView(ns);
+
+        LinearLayout times = new LinearLayout(this);
+        times.setOrientation(LinearLayout.HORIZONTAL);
+        Button from = new Button(this), to = new Button(this);
+        from.setAllCaps(false);
+        to.setAllCaps(false);
+        from.setText("From " + NightLock.fmt(NightLock.start(this)));
+        to.setText("To " + NightLock.fmt(NightLock.end(this)));
+        from.setOnClickListener(v -> {
+            int st = NightLock.start(this);
+            new TimePickerDialog(this, (tp, hh, mm) -> {
+                NightLock.setStart(this, hh * 60 + mm);
+                from.setText("From " + NightLock.fmt(hh * 60 + mm));
+            }, st / 60, st % 60, false).show();
+        });
+        to.setOnClickListener(v -> {
+            int en = NightLock.end(this);
+            new TimePickerDialog(this, (tp, hh, mm) -> {
+                NightLock.setEnd(this, hh * 60 + mm);
+                to.setText("To " + NightLock.fmt(hh * 60 + mm));
+            }, en / 60, en % 60, false).show();
+        });
+        times.addView(from, new LinearLayout.LayoutParams(0, -2, 1f));
+        times.addView(to, new LinearLayout.LayoutParams(0, -2, 1f));
+        c4.addView(times);
+
+        c4.addView(text("Trusted places", 15, true));
+        placesBox = new LinearLayout(this);
+        placesBox.setOrientation(LinearLayout.VERTICAL);
+        c4.addView(placesBox);
+        Button addPlace = bigButton("➕ Add trusted place on map");
+        addPlace.setOnClickListener(v -> {
+            if (Loc.hasPermission(this)) openMap();
+            else askLocation(REQ_LOC_MAP);
+        });
+        c4.addView(addPlace);
+
+        // 5. App list
         TextView lh = text("\nApps to lock", 18, true);
         head.addView(lh);
         head.addView(text("Bank and UPI apps are ticked automatically. Tick any other app you want "
@@ -276,6 +336,63 @@ public class MainActivity extends Activity {
                 : "⚠️ App Locker is OFF\nTap the button → find App Locker → turn it ON → Allow.");
         status.setTextColor(on ? 0xFF2E7D32 : 0xFFC62828);
         onBtn.setText(on ? "Accessibility settings" : "Turn on App Locker");
+    }
+
+    private void refreshPlaces() {
+        if (placesBox == null) return;
+        placesBox.removeAllViews();
+        if (NightLock.on(this) && !Loc.hasPermission(this)) {
+            Button perm = smallButton("⚠️ Allow location (needed for Night lock)");
+            perm.setTextColor(0xFFC62828);
+            perm.setOnClickListener(v -> askLocation(REQ_LOC));
+            placesBox.addView(perm);
+        }
+        List<NightLock.Place> ps = NightLock.places(this);
+        if (ps.isEmpty()) {
+            TextView t = text(NightLock.on(this)
+                    ? "No trusted place yet, so at night money apps are blocked everywhere. Add your home."
+                    : "No trusted place yet.", 14, false);
+            t.setTextColor(0xFFC62828);
+            placesBox.addView(t);
+        }
+        for (int i = 0; i < ps.size(); i++) {
+            final int idx = i;
+            NightLock.Place p = ps.get(i);
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            TextView t = text("📍 " + p.name + "  ·  " + p.radius + " m", 15, false);
+            row.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+            Button del = new Button(this);
+            del.setText("Remove");
+            del.setAllCaps(false);
+            del.setOnClickListener(v -> new AlertDialog.Builder(this)
+                    .setMessage("Remove trusted place \"" + p.name + "\"?")
+                    .setPositiveButton("Remove", (d, w) -> { NightLock.removePlace(this, idx); refreshPlaces(); })
+                    .setNegativeButton("Cancel", null)
+                    .show());
+            row.addView(del);
+            placesBox.addView(row);
+        }
+    }
+
+    private void askLocation(int code) {
+        requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION}, code);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(code, perms, res);
+        refreshPlaces();
+        if (code == REQ_LOC_MAP) openMap();      // the map also works by tapping, without GPS
+        if (!Loc.hasPermission(this)) {
+            Toast.makeText(this, "Choose \"While using the app\" or \"Allow\" for location", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openMap() {
+        startActivity(new Intent(this, MapActivity.class));
     }
 
     private Intent appDetails() {

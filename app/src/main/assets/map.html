@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="stylesheet" href="leaflet.css">
+<script src="leaflet.js"></script>
+<style>
+  html, body, #map { height: 100%; margin: 0; padding: 0; }
+  .hint { background: rgba(255,255,255,.92); padding: 6px 10px; border-radius: 8px;
+          font: 14px sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  L.Icon.Default.imagePath = 'images/';
+  var map = L.map('map', { zoomControl: true }).setView([22.5726, 88.3639], 12); // Kolkata
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  var marker = null, circle = null, me = null, radius = 150;
+
+  var Hint = L.Control.extend({
+    onAdd: function () {
+      var d = L.DomUtil.create('div', 'hint');
+      d.innerHTML = 'Tap the map to put the pin. Drag the pin to move it.';
+      return d;
+    }
+  });
+  new Hint({ position: 'topright' }).addTo(map);
+
+  function report() {
+    var p = marker.getLatLng();
+    if (window.Android) Android.onPick(p.lat, p.lng);
+  }
+
+  function setPoint(lat, lng, zoom) {
+    if (!marker) {
+      circle = L.circle([lat, lng], { radius: radius, color: '#2563EB', weight: 2, fillOpacity: 0.15 }).addTo(map);
+      marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+      marker.on('drag', function (e) { circle.setLatLng(e.target.getLatLng()); });
+      marker.on('dragend', report);
+    } else {
+      marker.setLatLng([lat, lng]);
+      circle.setLatLng([lat, lng]);
+    }
+    if (zoom) map.setView([lat, lng], zoom);
+    report();
+  }
+
+  function hasPoint() { return marker !== null; }
+
+  function setRadius(r) {
+    radius = r;
+    if (circle) circle.setRadius(r);
+  }
+
+  // Where the phone is now (green circle = how exact the GPS is)
+  function showMe(lat, lng, acc) {
+    if (me) map.removeLayer(me);
+    me = L.circle([lat, lng], { radius: Math.max(acc, 5), color: '#16A34A', weight: 1, fillOpacity: 0.12 }).addTo(map);
+  }
+
+  function addExisting(lat, lng, r, name) {
+    L.circle([lat, lng], { radius: r, color: '#7C3AED', weight: 1, fillOpacity: 0.08 })
+      .addTo(map).bindTooltip(name, { permanent: true, direction: 'center' });
+  }
+
+  map.on('click', function (e) { setPoint(e.latlng.lat, e.latlng.lng, 0); });
+</script>
+</body>
+</html>
