@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Theft alert: texts the location to family numbers after many wrong passwords -->
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <!-- SOS screen: one-tap call to the saved family numbers (112 always goes through the dialer) -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <!-- Android 11+: see installed apps (to list them) and the Settings / uninstall screens (to lock them) -->
@@ -62,6 +64,34 @@
             android:label="Add trusted place"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustPan" />
+
+        <!-- Second app icon "SOS": opens without the password, shows the saved emergency numbers
+             and sends the live location to them with one tap. -->
+        <activity
+            android:name=".SosActivity"
+            android:exported="true"
+            android:icon="@mipmap/ic_sos"
+            android:label="SOS"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:taskAffinity="com.shivarghya.applocker.sos">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- "SOS" tile for the notification panel -->
+        <service
+            android:name=".SosTile"
+            android:exported="true"
+            android:icon="@drawable/ic_sos_tile"
+            android:label="SOS"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".LockService"

@@ -45,6 +45,49 @@ public class LockService extends AccessibilityService {
     private static final java.util.Set<String> IGNORE = new java.util.HashSet<>(java.util.Arrays.asList(
             "com.android.systemui", "android", "com.miui.voip", "com.android.incallui"));
 
+    /** Where the power menu, notification panel and MIUI Control Center live. */
+    private static final java.util.Set<String> SYSTEM_UI = new java.util.HashSet<>(java.util.Arrays.asList(
+            "com.android.systemui", "android", "miui.systemui.plugin"));
+    private long lastClose;
+
+    private boolean keyguardLocked() {
+        android.app.KeyguardManager km = (android.app.KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        return km != null && km.isKeyguardLocked();
+    }
+
+    /** The long-press-power menu (Power off / Restart / Aeroplane mode / Emergency). */
+    private static boolean isPowerMenu(AccessibilityEvent e) {
+        String cls = e.getClassName() == null ? "" : e.getClassName().toString().toLowerCase(java.util.Locale.ROOT);
+        if (cls.contains("globalaction") || cls.contains("shutdown") || cls.contains("powermenu")) return true;
+        StringBuilder t = new StringBuilder();
+        for (CharSequence cs : e.getText()) if (cs != null) t.append(cs).append(' ');
+        String x = t.toString().toLowerCase(java.util.Locale.ROOT);
+        return x.contains("power off") || x.contains("restart") || x.contains("reboot") || x.contains("shut down")
+                || x.contains("airplane") || x.contains("aeroplane") || x.contains("flight mode");
+    }
+
+    /** Emergency mode: shut the power menu / quick settings before Power off or Aeroplane mode can be tapped. */
+    @SuppressWarnings("deprecation")
+    private void closeSystemUi(boolean powerMenu) {
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastClose < 200) return;
+        lastClose = now;
+        if (Build.VERSION.SDK_INT >= 31) {
+            performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE);
+        } else {
+            try { sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)); } catch (Exception ignored) {}
+        }
+        // Back closes the power menu (it has the focus). Not used for other pop-ups, so it can't
+        // knock anyone off the password screen.
+        if (powerMenu) performGlobalAction(GLOBAL_ACTION_BACK);
+        // MIUI sometimes redraws the menu once more: close it again a moment later.
+        h.postDelayed(() -> {
+            if (Build.VERSION.SDK_INT < 31) {
+                try { sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)); } catch (Exception ignored) {}
+            }
+        }, 300);
+    }
+
     // ---------- lifecycle ----------
 
     @Override
@@ -87,6 +130,13 @@ public class LockService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e == null || e.getPackageName() == null) return;
         String pkg = e.getPackageName().toString();
+        if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                && SYSTEM_UI.contains(pkg) && Store.emergency(this)) {
+            boolean power = isPowerMenu(e);
+            // On the phone's own lock screen only the power menu is closed, so the screen-lock PIN pad keeps working.
+            if (power || !keyguardLocked()) closeSystemUi(power);
+            return;
+        }
         if (IGNORE.contains(pkg)) return;
 
         if (e.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {

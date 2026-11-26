@@ -353,7 +353,11 @@ public class MainActivity extends Activity {
         c5.addView(text("If someone types a wrong password 5 times, waits, and then gets it wrong 3 more "
                 + "times, this phone silently sends an SMS with its live location (Google Maps link) to "
                 + "these family numbers. It is sent again after every 3 more wrong tries. Nothing shows "
-                + "on the screen, so the thief does not know.", 14, false));
+                + "on the screen, so the thief does not know.\n\n"
+                + "Emergency mode: from the 5th wrong password until the right one is typed, the "
+                + "power menu (Power off / Restart / Aeroplane mode) and the quick-settings panel close "
+                + "as soon as they open. After the SMS goes out, the lock screen also shows a red "
+                + "warning that the location was sent.", 14, false));
         Switch as = new Switch(this);
         as.setText("Theft alert");
         as.setTextSize(16);
@@ -388,6 +392,9 @@ public class MainActivity extends Activity {
         ar.addView(saveNums, new LinearLayout.LayoutParams(0, -2, 1f));
         ar.addView(test, new LinearLayout.LayoutParams(0, -2, 1f));
         c5.addView(ar);
+        Button sosBtn = smallButton("🚨 Open SOS screen (also its own app icon)");
+        sosBtn.setOnClickListener(v -> startActivity(new Intent(this, SosActivity.class)));
+        c5.addView(sosBtn);
         c5.addView(text("Needs: SMS permission + location permission. On MIUI also set "
                 + "\"Send SMS\" to Allow (button 1 above → Other permissions), or MIUI may ask first "
                 + "and the alert won't go.", 13, false));

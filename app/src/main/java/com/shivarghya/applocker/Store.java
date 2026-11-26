@@ -129,15 +129,25 @@ final class Store {
             long secs = Math.min(30L << Math.min(n - MAX_TRIES, 5), 15 * 60L); // 30 s, 1 m, 2 m … 15 m
             until = System.currentTimeMillis() + secs * 1000L;
         }
-        s.edit().putInt("fails", n).putLong("lockout_until", until).apply();
+        SharedPreferences.Editor ed = s.edit().putInt("fails", n).putLong("lockout_until", until);
+        if (n >= MAX_TRIES) ed.putBoolean("emergency", true);   // someone is guessing: emergency mode on
+        ed.apply();
         return Math.max(0, MAX_TRIES - n);
     }
 
     static int fails(Context c) { return sp(c).getInt("fails", 0); }
 
+    /** Correct password: clears the wrong-try count and ends emergency mode. */
     static void resetFails(Context c) {
-        sp(c).edit().putInt("fails", 0).putLong("lockout_until", 0).apply();
+        sp(c).edit().putInt("fails", 0).putLong("lockout_until", 0)
+                .putBoolean("emergency", false).remove("alert_last_at").apply();
     }
+
+    /**
+     * Emergency mode: from the 5th wrong password until the right one is entered. The power menu
+     * (Power off / Restart / Aeroplane mode) and the quick-settings panel are closed as soon as they open.
+     */
+    static boolean emergency(Context c) { return sp(c).getBoolean("emergency", false); }
 
     static long waitLeftMs(Context c) {
         long left = sp(c).getLong("lockout_until", 0) - System.currentTimeMillis();

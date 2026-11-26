@@ -35,7 +35,7 @@ public class LockActivity extends Activity {
     private final Handler h = new Handler(Looper.getMainLooper());
     private String target;
     private ImageView icon;
-    private TextView title, msg, sub, place;
+    private TextView title, msg, sub, place, alarm;
     private EditText pw;
     private CheckBox show;
     private Button btn, retry;
@@ -91,12 +91,39 @@ public class LockActivity extends Activity {
     protected void onResume() {
         super.onResume();
         visible = true;
+        h.removeCallbacks(alarmTick);
+        h.post(alarmTick);
         if (mode != MODE_OK) startGate();
         else { refreshWait(); pw.requestFocus(); h.postDelayed(showKb, 200); }
     }
 
+    /** Red warning once the theft SMS with the location has gone out. Checked every 2 s while showing. */
+    private final Runnable alarmTick = new Runnable() {
+        @Override public void run() {
+            refreshAlarm();
+            h.postDelayed(this, 2000);
+        }
+    };
+
+    private void refreshAlarm() {
+        long at = Store.sp(this).getLong("alert_last_at", 0);
+        java.util.List<String> nums = Alert.numbers(this);
+        if (!Store.emergency(this) || at == 0 || nums.isEmpty()
+                || System.currentTimeMillis() - at > 24 * 3600_000L) {
+            alarm.setVisibility(View.GONE);
+            return;
+        }
+        StringBuilder who = new StringBuilder();
+        for (String n : nums) who.append(who.length() == 0 ? "" : ", ").append(Alert.masked(n));
+        String time = new java.text.SimpleDateFormat("h:mm a", java.util.Locale.US).format(new java.util.Date(at));
+        alarm.setText("🚨 This phone's live location was sent at " + time + " to the owner's emergency numbers: "
+                + who + ". The police can be called.\nএই ফোনের লোকেশন পরিবারের কাছে পাঠানো হয়েছে।");
+        alarm.setVisibility(View.VISIBLE);
+    }
+
     @Override
     protected void onPause() {
+        h.removeCallbacks(alarmTick);
         visible = false;
         stopLoc();
         if (mode == MODE_CHECKING) mode = MODE_NONE;
@@ -336,6 +363,22 @@ public class LockActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         title.setPadding(0, dp(16), 0, dp(4));
         col.addView(title);
+
+        alarm = new TextView(this);
+        alarm.setTextColor(Color.WHITE);
+        alarm.setTextSize(15);
+        alarm.setTypeface(Typeface.DEFAULT_BOLD);
+        alarm.setGravity(Gravity.CENTER);
+        alarm.setPadding(dp(14), dp(12), dp(14), dp(12));
+        GradientDrawable ab = new GradientDrawable();
+        ab.setColor(0xFFB91C1C);
+        ab.setCornerRadius(dp(12));
+        alarm.setBackground(ab);
+        alarm.setVisibility(View.GONE);
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(-1, -2);
+        alp.topMargin = dp(10);
+        alp.bottomMargin = dp(6);
+        col.addView(alarm, alp);
 
         sub = new TextView(this);
         sub.setText("Enter password  ·  পাসওয়ার্ড দিন");

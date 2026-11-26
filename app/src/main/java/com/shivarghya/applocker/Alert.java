@@ -75,14 +75,28 @@ final class Alert {
         if (now - lastSentAt < MIN_GAP_MS) return;
         lastSentAt = now;
         String reason = wrongTries + " wrong password tries";
-        locateThenSend(c, reason);
+        locateThenSend(c, THEFT, reason, (n, where) -> {
+            // Remembered so the lock screen can warn that the location has gone out.
+            if (n > 0) Store.sp(c).edit().putLong("alert_last_at", System.currentTimeMillis()).apply();
+        });
     }
 
     static void test(Context ctx) {
-        locateThenSend(ctx.getApplicationContext(), "TEST message (no danger)");
+        locateThenSend(ctx.getApplicationContext(), THEFT, "TEST message (no danger)", null);
     }
 
-    private static void locateThenSend(Context c, String reason) {
+    /** Result shown on the SOS screen: how many numbers, and how exact the location was. */
+    interface Done { void sent(int numbers, Location where); }
+
+    private static final String THEFT = "App Locker ALERT: phone may be stolen! ";
+    private static final String SOS = "SOS! I need help. ";
+
+    /** SOS pressed by the phone's owner: sends straight away with the best location found in ≤12 s. */
+    static void sos(Context ctx, Done done) {
+        locateThenSend(ctx.getApplicationContext(), SOS, "Sent from SOS button", done);
+    }
+
+    private static void locateThenSend(Context c, String headline, String reason, Done done) {
         final Handler h = new Handler(Looper.getMainLooper());
         final Location[] best = {lastKnown(c)};
         final boolean[] sent = {false};
@@ -91,7 +105,8 @@ final class Alert {
             if (sent[0]) return;
             sent[0] = true;
             if (loc[0] != null) loc[0].stop();
-            sendSms(c, reason, best[0]);
+            int n = sendSms(c, headline, reason, best[0]);
+            if (done != null) done.sent(n, best[0]);
         };
         loc[0] = new Loc(c, l -> {
             if (Loc.isFake(l)) return;
@@ -120,9 +135,9 @@ final class Alert {
         return (SystemClock.elapsedRealtimeNanos() - l.getElapsedRealtimeNanos()) / 1_000_000L;
     }
 
-    private static void sendSms(Context c, String reason, Location l) {
+    private static int sendSms(Context c, String headline, String reason, Location l) {
         String time = new SimpleDateFormat("d MMM, h:mm a", Locale.US).format(new Date());
-        StringBuilder m = new StringBuilder("App Locker ALERT: phone may be stolen! ")
+        StringBuilder m = new StringBuilder(headline)
                 .append(reason).append(" at ").append(time).append(". ");
         if (l != null) {
             long mins = age(l) / 60_000L;
@@ -135,10 +150,23 @@ final class Alert {
             m.append("Location not available (GPS off). ");
         }
         m.append("Call 112 / police.");
+        int sent = 0;
         try {
             SmsManager sms = Build.VERSION.SDK_INT >= 31 ? c.getSystemService(SmsManager.class) : SmsManager.getDefault();
             ArrayList<String> parts = sms.divideMessage(m.toString());
-            for (String n : numbers(c)) sms.sendMultipartTextMessage(n, null, parts, null, null);
+            for (String n : numbers(c)) {
+                try { sms.sendMultipartTextMessage(n, null, parts, null, null); sent++; } catch (Exception ignored) {}
+            }
         } catch (Exception ignored) {}
+        return sent;
+    }
+
+    /** 9876543210 → 98•••••210 (shown on the lock screen without giving the full number away). */
+    static String masked(String n) {
+        return n.length() < 6 ? n : n.substring(0, 2) + "•••••" + n.substring(n.length() - 3);
+    }
+
+    static String mapsLink(Location l) {
+        return "https://maps.google.com/?q=" + String.format(Locale.US, "%.6f,%.6f", l.getLatitude(), l.getLongitude());
     }
 }
