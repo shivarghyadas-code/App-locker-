@@ -112,7 +112,7 @@ public class MainActivity extends Activity {
         RadioGroup kind = new RadioGroup(this);
         RadioButton rFixed = new RadioButton(this), rTime = new RadioButton(this);
         rFixed.setText("Fixed password (letters + numbers)");
-        rTime.setText("Time password (clock time + 4 digits)");
+        rTime.setText("Time password (clock time + your fixed digits)");
         rFixed.setId(2001);
         rTime.setId(2002);
         kind.addView(rFixed);
@@ -141,11 +141,11 @@ public class MainActivity extends Activity {
             p2.setInputType(type);
             p1.setTypeface(Typeface.DEFAULT);
             p2.setTypeface(Typeface.DEFAULT);
-            p1.setHint(tm ? "Your 4 digits" : "Password");
+            p1.setHint(tm ? "Your fixed digits (4–12), e.g. 48153062" : "Password");
             info.setText(tm
                     ? "The password changes every minute: type the time shown on the phone's clock, "
-                    + "then your 4 digits.\n\nExample with 1972:\n• at 12:41 → 12411972\n"
-                    + "• at 9:05 → 9051972 (or 09051972)\n\nIf the minute changes while typing, "
+                    + "then your fixed digits.\n\nExample with 48153062:\n• at 12:41 → 124148153062\n"
+                    + "• at 9:05 → 90548153062 (or 090548153062)\n\nIf the minute changes while typing, "
                     + "the previous minute also works."
                     : "• At least 8 characters, with letters AND numbers (example: tara313bristi62 — "
                     + "but make your own)\n• Do NOT use the screen lock PIN, UPI PIN or birth date\n"
@@ -289,7 +289,7 @@ public class MainActivity extends Activity {
         c3.addView(text("Apps also lock again when you leave them and whenever the screen turns off.", 13, false));
 
         c3.addView(text("\nPassword type: " + (Store.timeMode(this)
-                ? "Time password (clock time + your 4 digits)" : "Fixed password"), 14, false));
+                ? "Time password (clock time + your fixed digits)" : "Fixed password"), 14, false));
         Button chg = smallButton("Change password / password type");
         chg.setOnClickListener(v -> showPasswordForm(true));
         c3.addView(chg);

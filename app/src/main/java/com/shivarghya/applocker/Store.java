@@ -46,16 +46,16 @@ final class Store {
         return null;
     }
 
-    /** "Time password": the clock time (HHMM) followed by 4 secret digits, e.g. 12:41 → 1241 + 1972. */
+    /** "Time password": the clock time (HHMM) followed by secret digits, e.g. 12:41 → 1241 + 48153062. */
     static boolean timeMode(Context c) { return "time".equals(sp(c).getString("pw_mode", "fixed")); }
 
     static String timeWeakness(String digits) {
-        return digits.matches("\\d{4}") ? null : "Type exactly 4 digits.";
+        return digits.matches("\\d{4,12}") ? null : "Type 4 to 12 digits (numbers only).";
     }
 
     static void setTimePassword(Context c, String digits4) {
         setPassword(c, digits4);
-        sp(c).edit().putString("pw_mode", "time").commit();
+        sp(c).edit().putString("pw_mode", "time").putInt("pw_time_len", digits4.length()).commit();
     }
 
     /** What the clock may show now (or a minute ago, if it changed while typing): 1241, 0105, 105, 1305… */
@@ -92,10 +92,11 @@ final class Store {
     static boolean check(Context c, String pw) {
         if (timeMode(c)) {
             String d = pw.trim();
-            if (!d.matches("\\d{7,8}")) return false;
-            String prefix = d.substring(0, d.length() - 4);
+            int len = sp(c).getInt("pw_time_len", 4);            // how many fixed digits come after the time
+            if (!d.matches("\\d+") || d.length() < len + 3 || d.length() > len + 4) return false;
+            String prefix = d.substring(0, d.length() - len);
             if (!timePrefixes().contains(prefix)) return false;
-            return checkSecret(c, d.substring(d.length() - 4));
+            return checkSecret(c, d.substring(d.length() - len));
         }
         return checkSecret(c, pw);
     }
