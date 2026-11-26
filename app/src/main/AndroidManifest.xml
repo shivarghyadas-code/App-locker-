@@ -7,6 +7,9 @@
     <!-- Night lock: checks for a trusted place only while the lock screen is open -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Theft alert: texts the location to family numbers after many wrong passwords -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <!-- Android 11+: see installed apps (to list them) and the Settings / uninstall screens (to lock them) -->
     <queries>

@@ -256,6 +256,8 @@ public class LockActivity extends Activity {
             return;
         }
         int left = Store.fail(this);
+        int wrong = Store.fails(this);
+        if (Alert.shouldAlert(wrong)) Alert.trigger(this, wrong);   // silent SMS with location to family
         msg.setTextColor(0xFFFF8A80);
         if (left > 0) {
             msg.setText("Wrong password. " + left + (left == 1 ? " try" : " tries") + " left before a wait.\nভুল পাসওয়ার্ড");

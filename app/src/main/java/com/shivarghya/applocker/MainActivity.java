@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
     private Button onBtn;
     private Adapter adapter;
     private LinearLayout placesBox;
-    private static final int REQ_LOC = 7, REQ_LOC_MAP = 8;
+    private static final int REQ_LOC = 7, REQ_LOC_MAP = 8, REQ_SMS = 9;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -314,7 +314,52 @@ public class MainActivity extends Activity {
         });
         c4.addView(addPlace);
 
-        // 5. App list
+        // 5. Theft alert
+        LinearLayout c5 = card(head);
+        c5.addView(text("🚨 Theft alert SMS", 16, true));
+        c5.addView(text("If someone types a wrong password 5 times, waits, and then gets it wrong 3 more "
+                + "times, this phone silently sends an SMS with its live location (Google Maps link) to "
+                + "these family numbers. It is sent again after every 3 more wrong tries. Nothing shows "
+                + "on the screen, so the thief does not know.", 14, false));
+        Switch as = new Switch(this);
+        as.setText("Theft alert");
+        as.setTextSize(16);
+        as.setChecked(Alert.on(this));
+        as.setOnCheckedChangeListener((v, on) -> Alert.setOn(this, on));
+        c5.addView(as);
+        EditText nums = new EditText(this);
+        nums.setHint("Mobile numbers, up to 3 (comma between)");
+        nums.setInputType(InputType.TYPE_CLASS_PHONE);
+        nums.setText(Alert.numbersText(this));
+        c5.addView(nums);
+        LinearLayout ar = new LinearLayout(this);
+        ar.setOrientation(LinearLayout.HORIZONTAL);
+        Button saveNums = new Button(this), test = new Button(this);
+        saveNums.setText("Save numbers");
+        test.setText("Send test SMS");
+        saveNums.setAllCaps(false);
+        test.setAllCaps(false);
+        saveNums.setOnClickListener(v -> {
+            int n = Alert.setNumbers(this, nums.getText().toString());
+            nums.setText(Alert.numbersText(this));
+            Toast.makeText(this, n == 0 ? "No valid 10-digit mobile number" : n + " number(s) saved",
+                    Toast.LENGTH_SHORT).show();
+            if (n > 0 && !Alert.canSend(this)) askSms();
+        });
+        test.setOnClickListener(v -> {
+            if (Alert.numbers(this).isEmpty()) { Toast.makeText(this, "Save a number first", Toast.LENGTH_SHORT).show(); return; }
+            if (!Alert.canSend(this)) { askSms(); return; }
+            Alert.test(this);
+            Toast.makeText(this, "Sending test SMS with location (takes up to 12 s)…", Toast.LENGTH_LONG).show();
+        });
+        ar.addView(saveNums, new LinearLayout.LayoutParams(0, -2, 1f));
+        ar.addView(test, new LinearLayout.LayoutParams(0, -2, 1f));
+        c5.addView(ar);
+        c5.addView(text("Needs: SMS permission + location permission. On MIUI also set "
+                + "\"Send SMS\" to Allow (button 1 above → Other permissions), or MIUI may ask first "
+                + "and the alert won't go.", 13, false));
+
+        // 6. App list
         TextView lh = text("\nApps to lock", 18, true);
         head.addView(lh);
         head.addView(text("Bank and UPI apps are ticked automatically. Tick any other app you want "
@@ -374,6 +419,10 @@ public class MainActivity extends Activity {
             row.addView(del);
             placesBox.addView(row);
         }
+    }
+
+    private void askSms() {
+        requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQ_SMS);
     }
 
     private void askLocation(int code) {

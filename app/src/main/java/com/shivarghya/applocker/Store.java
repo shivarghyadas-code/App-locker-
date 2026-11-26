@@ -91,6 +91,8 @@ final class Store {
         return Math.max(0, MAX_TRIES - n);
     }
 
+    static int fails(Context c) { return sp(c).getInt("fails", 0); }
+
     static void resetFails(Context c) {
         sp(c).edit().putInt("fails", 0).putLong("lockout_until", 0).apply();
     }

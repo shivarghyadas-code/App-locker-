@@ -21,6 +21,9 @@ send the money out.
   apps open only when the phone is inside a trusted place you marked on the map (home, auto
   stand…). Anywhere else they stay blocked, even with the password. Settings and App Locker
   are blocked too, so it can't be switched off. Fake GPS apps are detected.
+- **Theft alert SMS.** After 5 wrong passwords and the wait, 3 more wrong tries silently send an
+  SMS with the phone's live location (Google Maps link) to up to 3 family numbers, and again after
+  every 3 more. Nothing shows on screen. (Android does not let apps call 112 by themselves.)
 - Doesn't read the screen or what you type. Screenshots of the password screen are blocked.
   Internet is used only to show the map; location is checked only while the lock screen is open
   and never leaves the phone.
