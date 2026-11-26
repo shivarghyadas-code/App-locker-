@@ -56,7 +56,7 @@ public class MainActivity extends Activity {
     private Button adminBtn;
     private Adapter adapter;
     private LinearLayout placesBox;
-    private static final int REQ_LOC = 7, REQ_LOC_MAP = 8, REQ_SMS = 9;
+    private static final int REQ_LOC = 7, REQ_LOC_MAP = 8, REQ_SMS = 9, REQ_ADMIN = 10;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -238,7 +238,14 @@ public class MainActivity extends Activity {
                 return;
             }
             Toast.makeText(this, "Tap \"Activate this device admin app\"", Toast.LENGTH_LONG).show();
-            open(AdminReceiver.enableIntent(this), null);
+            // Must NOT be a new task: Android's device-admin screen closes itself if started that way.
+            LockService.preAllow(Known.SYSTEM_PROTECTED.toArray(new String[0]));
+            try {
+                startActivityForResult(AdminReceiver.enableIntent(this), REQ_ADMIN);
+            } catch (Exception e) {
+                Toast.makeText(this, "Open Settings → Passwords & security → Privacy → Device admin apps → App Locker",
+                        Toast.LENGTH_LONG).show();
+            }
         });
         c1.addView(adminBtn);
 
@@ -480,6 +487,16 @@ public class MainActivity extends Activity {
                     .show());
             row.addView(del);
             placesBox.addView(row);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code == REQ_ADMIN) {
+            refreshStatus();
+            Toast.makeText(this, AdminReceiver.isOn(this) ? "Uninstall protection is ON"
+                    : "Uninstall protection was not turned on", Toast.LENGTH_SHORT).show();
         }
     }
 
