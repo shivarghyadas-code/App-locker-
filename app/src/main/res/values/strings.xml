@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">App Locker</string>
+    <string name="service_desc">Asks for your App Locker password when a locked app (PNB ONE, YONO SBI, PhonePe, Google Pay, Paytm and others you choose) is opened. App Locker only sees which app is opening and whether the screen is being used. It cannot read the screen or what you type, and it has no internet access.</string>
+</resources>

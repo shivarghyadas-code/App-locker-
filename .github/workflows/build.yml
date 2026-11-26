@@ -1,0 +1,79 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -o pipefail
+          gradle --no-daemon assembleRelease 2>&1 | tee build.log
+          cp app/build/outputs/apk/release/app-release.apk App-Locker.apk
+          ls -l App-Locker.apk
+
+      - name: Save build log on failure
+        if: failure()
+        run: |
+          git config user.name "build-bot"
+          git config user.email "build-bot@users.noreply.github.com"
+          git checkout --orphan build-log
+          git rm -rq --cached .
+          tail -n 300 build.log > failure.log || echo "no log" > failure.log
+          git add failure.log
+          git commit -qm "Build failure log (run ${{ github.run_number }})"
+          git push -f origin build-log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: App-Locker
+          path: App-Locker.apk
+
+      - name: Publish to download branch (permanent link)
+        run: |
+          mkdir /tmp/dl && cp App-Locker.apk /tmp/dl/ && cd /tmp/dl
+          git init -q -b download
+          git config user.name "build-bot"
+          git config user.email "build-bot@users.noreply.github.com"
+          git add App-Locker.apk
+          git commit -qm "App Locker build ${{ github.run_number }} (${GITHUB_SHA::7})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" download
+
+      - name: Publish release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v1.0.${{ github.run_number }}"
+          gh release create "$TAG" App-Locker.apk --title "App Locker $TAG" --notes "Install App-Locker.apk" --latest
