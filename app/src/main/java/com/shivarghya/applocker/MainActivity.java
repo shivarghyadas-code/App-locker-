@@ -52,6 +52,8 @@ public class MainActivity extends Activity {
     private ListView list;
     private TextView status;
     private Button onBtn;
+    private TextView adminStatus;
+    private Button adminBtn;
     private Adapter adapter;
     private LinearLayout placesBox;
     private static final int REQ_LOC = 7, REQ_LOC_MAP = 8, REQ_SMS = 9;
@@ -227,6 +229,18 @@ public class MainActivity extends Activity {
             open(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), null);
         });
         c1.addView(onBtn);
+        adminStatus = text("", 15, true);
+        c1.addView(adminStatus);
+        adminBtn = bigButton("Turn on uninstall protection");
+        adminBtn.setOnClickListener(v -> {
+            if (AdminReceiver.isOn(this)) {
+                Toast.makeText(this, "Uninstall protection is already ON", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(this, "Tap \"Activate this device admin app\"", Toast.LENGTH_LONG).show();
+            open(AdminReceiver.enableIntent(this), null);
+        });
+        c1.addView(adminBtn);
 
         // 2. MIUI settings so the phone never stops it
         LinearLayout c2 = card(head);
@@ -423,6 +437,12 @@ public class MainActivity extends Activity {
                 : "⚠️ App Locker is OFF\nTap the button → find App Locker → turn it ON → Allow.");
         status.setTextColor(on ? 0xFF2E7D32 : 0xFFC62828);
         onBtn.setText(on ? "Accessibility settings" : "Turn on App Locker");
+
+        boolean admin = AdminReceiver.isOn(this);
+        adminStatus.setText(admin ? "\n✅ Uninstall protection is ON\nApp Locker can't be deleted without the password."
+                : "\n⚠️ Uninstall protection is OFF\nAnyone can delete App Locker from the home screen.");
+        adminStatus.setTextColor(admin ? 0xFF2E7D32 : 0xFFC62828);
+        adminBtn.setVisibility(admin ? View.GONE : View.VISIBLE);
     }
 
     private void refreshPlaces() {

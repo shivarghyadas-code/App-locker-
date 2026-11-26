@@ -25,6 +25,9 @@ send the money out.
   by itself**: an SMS with the live location (Google Maps link) goes to up to 3 family numbers and the
   first number is called; locked 1 hour again, and SOS repeats every 5 more wrong tries.
   (Android does not let apps call 112 by themselves.)
+- **Can't be deleted.** "Uninstall protection" makes App Locker a device admin, so Android refuses
+  to uninstall it (also from the home screen) until it is switched off in Settings, which needs the
+  App Locker password.
 - **Emergency mode.** From the 5th wrong password until the right one is typed, the power menu
   (Power off / Restart / Aeroplane mode) and the quick-settings panel close the moment they open,
   and after the alert SMS goes out the lock screen shows a red "location sent" warning. Holding
@@ -53,4 +56,5 @@ send the money out.
 - Never use the same number for the App Locker password, the screen lock and the UPI PIN.
 
 **Forgot the password?** Restart the phone in Safe mode (hold Power, then long-press Power off
-or Reboot), uninstall App Locker, restart, and install it again.
+or Reboot), go to Settings → Device admin apps → turn App Locker off, uninstall it, restart, and
+install it again.
