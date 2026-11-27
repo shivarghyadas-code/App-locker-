@@ -156,6 +156,10 @@ public class LockService extends AccessibilityService {
         }
 
         CharSequence cls = e.getClassName();
+        // The phone's own PIN / pattern / fingerprint check that an app asks for (e.g. Scan & Pay's
+        // unlock) is part of that app — not "Settings". Locking it would close the app that asked
+        // and loop forever. It needs the phone's screen-lock PIN anyway.
+        if (isCredentialScreen(pkg, cls)) return;
         boolean userLocked = Store.locked(this).contains(pkg);
         boolean sysLocked = !userLocked && Store.isSystemLocked(this, pkg) && isActivity(pkg, cls);
 
@@ -212,6 +216,15 @@ public class LockService extends AccessibilityService {
             return false;
         }
         return true;
+    }
+
+    private static boolean isCredentialScreen(String pkg, CharSequence cls) {
+        if (cls == null) return false;
+        if (!pkg.equals("com.android.settings") && !pkg.equals("com.miui.securitycenter")
+                && !pkg.equals("com.android.systemui")) return false;
+        String c = cls.toString();
+        return c.contains("ConfirmDeviceCredential") || c.contains("ConfirmLock") || c.contains("ConfirmCredential")
+                || c.contains("BiometricPrompt") || c.contains("AuthBiometric") || c.contains("AuthContainer");
     }
 
     /** True if this window is a full app screen (an Activity), not a pop-up or overlay. */
